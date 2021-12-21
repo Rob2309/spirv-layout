@@ -1,12 +1,13 @@
 [package]
 name = "spirv-layout"
-version = "0.1.0"
+version = "0.1.1"
 authors = [ "Robin Quint" ]
 edition = "2021"
 description = "SPIRV reflection utility for deriving Vulkan DescriptorSetLayouts"
 license = "MIT"
 keywords = [ "spirv", "reflection", "vulkan", "glsl", "hlsl" ]
 categories = [ "graphics", "game-development" ]
+repository = "https://github.com/Rob2309/spirv-layout"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
