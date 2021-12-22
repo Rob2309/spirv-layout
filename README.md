@@ -7,7 +7,7 @@ This crate is used by the [vulkan-engine](https://github.com/michidk/vulkan-engi
 
 ## Usage
 
-```Rust
+```rust
 let bytes = std::fs::read(PATH).unwrap();
 let words = unsafe { slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4) };
 let module = Module::from_words(words).unwrap();
