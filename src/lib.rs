@@ -1,3 +1,11 @@
+#![allow(unknown_lints)]
+#![warn(clippy::all, clippy::pedantic)]
+#![allow(
+    clippy::unreadable_literal,
+    clippy::too_many_lines,
+    clippy::must_use_candidate
+)]
+
 use std::{collections::HashMap, str::Utf8Error};
 
 use ops::{Dim, Op};
@@ -39,6 +47,7 @@ impl Module {
     /// - [`Error::InvalidHeader`] if the SPIRV header is not valid
     /// - [`Error::InvalidOp`] if the binary representation of any instruction in `words` is not valid
     /// - [`Error::InvalidId`] if any type declaration in the SPIRV module reference non-existent IDs
+    /// - [`Error::StringFormat`] if any `OpCode` contains a String with invalid UTF-8 characters
     /// - [`Error::Other`] if any other errors occur
     pub fn from_words(mut words: &[u32]) -> SpirvResult<Self> {
         // Check the SPIRV header magic number
@@ -64,7 +73,7 @@ impl Module {
         let mut vars = HashMap::new();
 
         Self::collect_types_and_vars(&ops, &mut types, &mut constants, &mut vars)?;
-        Self::collect_decorations_and_names(&ops, &mut types, &mut vars)?;
+        Self::collect_decorations_and_names(&ops, &mut types, &mut vars);
 
         // uniforms are all variables that are a pointer with a storage class of Uniform or UniformConstant
         let uniforms = vars
@@ -114,14 +123,17 @@ impl Module {
         })
     }
 
+    /// Returns the [`Type`] definition indicated by `type_id`, or `None` if `type_id` is not a type.
     pub fn get_type(&self, type_id: u32) -> Option<&Type> {
         self.types.get(&type_id)
     }
 
+    /// Returns all uniform variables declared in the given SPIR-V module.
     pub fn get_uniforms(&self) -> &[Variable] {
         &self.uniforms
     }
 
+    /// Returns all push-constant variables declared in the given SPIR-V module.
     pub fn get_push_constants(&self) -> &[Variable] {
         &self.push_constants
     }
@@ -161,7 +173,7 @@ impl Module {
         ops: &[Op],
         types: &mut HashMap<u32, Type>,
         vars: &mut HashMap<u32, Variable>,
-    ) -> SpirvResult<()> {
+    ) {
         for op in ops {
             match op {
                 Op::OpName { target, name } => {
@@ -207,8 +219,6 @@ impl Module {
                 _ => {}
             }
         }
-
-        Ok(())
     }
 
     // Parses all the OpType* and OpVariable instructions
@@ -240,10 +250,10 @@ impl Module {
                     }
                 }
                 Op::OpTypeFloat { result, width } => {
-                    if *width != 32 {
-                        types.insert(result.0, Type::Unknown);
-                    } else {
+                    if *width == 32 {
                         types.insert(result.0, Type::Float32);
+                    } else {
+                        types.insert(result.0, Type::Unknown);
                     }
                 }
                 Op::OpTypeVector {
@@ -385,8 +395,8 @@ impl Module {
                         Type::Pointer {
                             storage_class: match storage_class {
                                 ops::StorageClass::Unknown => StorageClass::Unknown,
-                                ops::StorageClass::UniformConstant {} => StorageClass::Uniform,
-                                ops::StorageClass::Uniform {} => StorageClass::Uniform,
+                                ops::StorageClass::UniformConstant {}
+                                | ops::StorageClass::Uniform {} => StorageClass::Uniform,
                                 ops::StorageClass::PushConstant {} => StorageClass::PushConstant,
                             },
                             pointed_type_id: pointed_type.0,

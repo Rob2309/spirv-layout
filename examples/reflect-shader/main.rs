@@ -37,7 +37,7 @@ fn print_var(module: &Module, var: &Variable) {
     println!(
         "{};",
         if let Some(name) = &var.name {
-            &name
+            name
         } else {
             "<no-name>"
         }

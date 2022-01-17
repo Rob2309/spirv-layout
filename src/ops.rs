@@ -29,7 +29,7 @@ macro_rules! ops {
                 if length == 0 || length as usize > stream.len() {
                     return Err(Error::InvalidOp);
                 }
-                
+
                 let mut op_stream = &stream[1..length as usize];
 
                 let op = match opcode {
@@ -129,7 +129,7 @@ impl DecodeArg for String {
             num_words += 1;
             e.to_le_bytes().iter().any(|b| *b == 0)
         }) {
-            let arg = unsafe { CStr::from_ptr(stream.as_ptr() as *const i8) }
+            let arg = unsafe { CStr::from_ptr(stream.as_ptr().cast::<i8>()) }
                 .to_str()?
                 .to_owned();
             *stream = &stream[num_words..];
