@@ -26,6 +26,10 @@ macro_rules! ops {
                 let opcode = (opcode_and_length & 0xFFFF) as u16;
                 let length = ((opcode_and_length >> 16) & 0xFFFF) as u16;
 
+                if length == 0 || length as usize > stream.len() {
+                    return Err(Error::InvalidOp);
+                }
+                
                 let mut op_stream = &stream[1..length as usize];
 
                 let op = match opcode {
@@ -126,8 +130,7 @@ impl DecodeArg for String {
             e.to_le_bytes().iter().any(|b| *b == 0)
         }) {
             let arg = unsafe { CStr::from_ptr(stream.as_ptr() as *const i8) }
-                .to_str()
-                .unwrap()
+                .to_str()?
                 .to_owned();
             *stream = &stream[num_words..];
             Ok(arg)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::Utf8Error};
 
 use ops::{Dim, Op};
 use thiserror::Error;
@@ -15,6 +15,8 @@ pub enum Error {
     InvalidOp,
     #[error("invalid id")]
     InvalidId,
+    #[error("invalid utf-8 in string")]
+    StringFormat(#[from] Utf8Error),
 }
 
 pub type SpirvResult<T> = ::std::result::Result<T, Error>;
@@ -40,7 +42,7 @@ impl Module {
     /// - [`Error::Other`] if any other errors occur
     pub fn from_words(mut words: &[u32]) -> SpirvResult<Self> {
         // Check the SPIRV header magic number
-        if words.len() < 4 || words[0] != 0x07230203 {
+        if words.len() < 6 || words[0] != 0x07230203 {
             return Err(Error::InvalidHeader);
         }
 
