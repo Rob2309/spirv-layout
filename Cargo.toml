@@ -8,6 +8,7 @@ license = "MIT"
 keywords = [ "spirv", "reflection", "vulkan", "glsl", "hlsl" ]
 categories = [ "graphics", "game-development" ]
 repository = "https://github.com/Rob2309/spirv-layout"
+exclude = [ ".github" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
