@@ -1,9 +1,11 @@
 # SPIRV-Layout
 
+[![MIT License](https://img.shields.io/crates/l/spirv-layout)](https://choosealicense.com/licenses/mit/) [![Continuous integration](https://github.com/Rob2309/spirv-layout/workflows/Continuous%20Integration/badge.svg)](https://github.com/michidk/ve-shader/actions) [![Crates.io](https://img.shields.io/crates/v/spirv-layout)](https://crates.io/crates/spirv-layout)
+
 This library parses SPIRV binaries and retrieves reflection info.
 It is most useful for deriving a Vulkan `DescriptorSetLayout` from a shader module, as well as finding offsets and names of individual fields in the Uniform Buffers of a shader.
 
-This crate is used by the [vulkan-engine](https://github.com/michidk/vulkan-engine).
+This crate is used by the [vulkan-engine](https://github.com/michidk/vulkan-engine) project.
 
 ## Usage
 
