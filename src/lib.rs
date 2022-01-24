@@ -152,7 +152,7 @@ impl Module {
                 Type::Vec4 => Some(16),
                 Type::Mat3 => Some(36), // TODO: Check
                 Type::Mat4 => Some(64),
-                Type::Struct { elements } => {
+                Type::Struct { elements, .. } => {
                     // Since there is no Size Decoration in SPIRV that tells us the size,
                     // we calculate it from the offset of the last member and its size.
                     let last_element = elements.iter().max_by_key(|e| e.offset.unwrap_or(0))?;
@@ -179,6 +179,8 @@ impl Module {
                 Op::OpName { target, name } => {
                     if let Some(target) = vars.get_mut(&target.0) {
                         target.name = Some(name.clone());
+                    } else if let Some(Type::Struct{name: n, ..}) = types.get_mut(&target.0) {
+                        *n = Some(name.clone());
                     }
                 }
                 Op::OpMemberName {
@@ -374,6 +376,7 @@ impl Module {
                     types.insert(
                         result.0,
                         Type::Struct {
+                            name: None,
                             elements: element_types
                                 .iter()
                                 .map(|e| StructMember {
@@ -490,6 +493,7 @@ pub enum Type {
     },
     /// A struct containing other types
     Struct {
+        name: Option<String>,
         /// members of the struct, in the order they appear in the SPIRV module (not necessarily ascending offsets)
         elements: Vec<StructMember>,
     },

@@ -67,8 +67,8 @@ fn print_type(module: &Module, ty: &Type) {
             print_type(module, module.get_type(*element_type_id).unwrap());
             print!("[{}] ", length.unwrap_or(0));
         }
-        Type::Struct { elements } => {
-            println!("struct {{");
+        Type::Struct { name, elements } => {
+            println!("struct {} {{", name.as_ref().map(|n| n.as_str()).unwrap_or("<no-name>"));
 
             for elem in elements {
                 print!("    ");
