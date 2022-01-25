@@ -7,38 +7,13 @@ on:
       - v*
 
 jobs:
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --all-targets
-
-  lints:
-    name: Lints
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets -- -D warnings
+  tests-and-lints:
+    name: Tests and Lints
+    uses: ./test-and-lint.yaml
 
   publish:
     name: Publish to crates.io
-    needs: [test, lints]
+    needs: [tests-and-lints]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
