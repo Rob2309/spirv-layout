@@ -1,6 +1,10 @@
-name: ContinuousIntegration
+name: Publish to crates.io
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v*
 
 jobs:
   test:
