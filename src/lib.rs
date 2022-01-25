@@ -179,7 +179,7 @@ impl Module {
                 Op::OpName { target, name } => {
                     if let Some(target) = vars.get_mut(&target.0) {
                         target.name = Some(name.clone());
-                    } else if let Some(Type::Struct{name: n, ..}) = types.get_mut(&target.0) {
+                    } else if let Some(Type::Struct { name: n, .. }) = types.get_mut(&target.0) {
                         *n = Some(name.clone());
                     }
                 }
