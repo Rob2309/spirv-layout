@@ -8,7 +8,6 @@ on:
 
 jobs:
   tests-and-lints:
-    name: Tests and Lints
     uses: ./.github/workflows/test-and-lint.yaml
 
   publish:
