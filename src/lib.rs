@@ -150,7 +150,7 @@ impl Module {
                 Type::Vec2 => Some(8),
                 Type::Vec3 => Some(12),
                 Type::Vec4 => Some(16),
-                Type::Mat3 => Some(36), // TODO: Check
+                Type::Mat3 => Some(48), // Mat3 works like three Vec3 after another, Vec3 has alignment of Vec4
                 Type::Mat4 => Some(64),
                 Type::Struct { elements, .. } => {
                     // Since there is no Size Decoration in SPIRV that tells us the size,
