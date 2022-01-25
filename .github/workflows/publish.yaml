@@ -9,7 +9,7 @@ on:
 jobs:
   tests-and-lints:
     name: Tests and Lints
-    uses: ./test-and-lint.yaml
+    uses: ./.github/workflows/test-and-lint.yaml
 
   publish:
     name: Publish to crates.io

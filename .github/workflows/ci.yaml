@@ -9,5 +9,5 @@ on:
 jobs:
   lints-and-tests:
     name: Tests and Lints
-    uses: ./test-and-lint.yaml
+    uses: ./.github/workflows/test-and-lint.yaml
 
