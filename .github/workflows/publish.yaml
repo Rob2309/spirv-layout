@@ -8,7 +8,7 @@ on:
 
 jobs:
   tests-and-lints:
-    uses: rob2309/spirv-layout/.github/workflows/test-and-lint.yaml@master
+    uses: rob2309/workflows/.github/workflows/rust-code-check.yaml@master
 
   publish:
     name: Publish to crates.io

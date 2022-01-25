@@ -8,5 +8,5 @@ on:
 
 jobs:
   lints-and-tests:
-    uses: rob2309/spirv-layout/.github/workflows/test-and-lint.yaml@master
+    uses: rob2309/workflows/.github/workflows/rust-code-check.yaml@master
 
