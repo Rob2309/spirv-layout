@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+      - name: Check version consistency
+        uses: rob2309/workflows/.github/actions/check-crate-version@master
       - name: Run cargo publish
         uses: actions-rs/cargo@v1
         with:
