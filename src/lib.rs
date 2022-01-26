@@ -35,9 +35,13 @@ pub struct Module {
     /// Stores information about all type declarations that exist in the given SPIRV module.
     types: HashMap<u32, Type>,
     /// Stores information about all uniform variables that exist in the given SPIRV module.
-    uniforms: Vec<Variable>,
+    uniforms: Vec<UniformVariable>,
     /// Stores information about all push constant variables that exist in the given SPIRV module.
     push_constants: Vec<PushConstantVariable>,
+    /// Stores information about all input variables that exist in the given SPIRV module.
+    inputs: Vec<LocationVariable>,
+    /// Stores information about all output variables that exist in the given SPIRV module.
+    outputs: Vec<LocationVariable>,
 }
 
 impl Module {
@@ -84,9 +88,9 @@ impl Module {
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(Variable {
-                        set: var.set,
-                        binding: var.binding,
+                    Some(UniformVariable {
+                        set: var.set?,
+                        binding: var.binding?,
                         type_id: *pointed_type_id, // for convenience, we store the pointed-to type instead of the pointer, since every uniform is a pointer
                         name: var.name.clone(),
                     })
@@ -114,10 +118,50 @@ impl Module {
             })
             .collect();
 
+        let inputs = vars
+            .iter()
+            .filter_map(|(_id, var)| {
+                if let Some(Type::Pointer {
+                    storage_class: StorageClass::Input,
+                    pointed_type_id,
+                }) = types.get(&var.type_id)
+                {
+                    Some(LocationVariable {
+                        location: var.location?,
+                        type_id: *pointed_type_id,
+                        name: var.name.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let outputs = vars
+            .iter()
+            .filter_map(|(_id, var)| {
+                if let Some(Type::Pointer {
+                    storage_class: StorageClass::Output,
+                    pointed_type_id,
+                }) = types.get(&var.type_id)
+                {
+                    Some(LocationVariable {
+                        location: var.location?,
+                        type_id: *pointed_type_id,
+                        name: var.name.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         Ok(Self {
             types,
             uniforms,
             push_constants,
+            inputs,
+            outputs,
         })
     }
 
@@ -127,13 +171,23 @@ impl Module {
     }
 
     /// Returns all uniform variables declared in the given SPIR-V module.
-    pub fn get_uniforms(&self) -> &[Variable] {
+    pub fn get_uniforms(&self) -> &[UniformVariable] {
         &self.uniforms
     }
 
     /// Returns all push-constant variables declared in the given SPIR-V module.
     pub fn get_push_constants(&self) -> &[PushConstantVariable] {
         &self.push_constants
+    }
+
+    /// Returns all input variables declared in the given SPIR-V module.
+    pub fn get_inputs(&self) -> &[LocationVariable] {
+        &self.inputs
+    }
+
+    /// Returns all output variables declared in the given SPIR-V module.
+    pub fn get_outputs(&self) -> &[LocationVariable] {
+        &self.outputs
     }
 
     /// Calculates the size of a primitive type or Struct.
@@ -170,7 +224,7 @@ impl Module {
     fn collect_decorations_and_names(
         ops: &[Op],
         types: &mut HashMap<u32, Type>,
-        vars: &mut HashMap<u32, Variable>,
+        vars: &mut HashMap<u32, RawVariable>,
     ) {
         for op in ops {
             match op {
@@ -203,16 +257,35 @@ impl Module {
                             target.set = Some(*set);
                         }
                     }
+                    ops::Decoration::Location { loc } => {
+                        if let Some(target) = vars.get_mut(&target.0) {
+                            target.location = Some(*loc);
+                        }
+                    }
                     _ => {}
                 },
                 Op::OpMemberDecorate {
                     target,
                     member_index,
-                    decoration: ops::Decoration::Offset { offset },
+                    decoration,
                 } => {
                     if let Some(Type::Struct { elements, .. }) = types.get_mut(&target.0) {
                         if elements.len() > *member_index as usize {
-                            elements[*member_index as usize].offset = Some(*offset);
+                            match decoration {
+                                ops::Decoration::RowMajor {} => {
+                                    elements[*member_index as usize].row_major = true;
+                                }
+                                ops::Decoration::ColMajor {} => {
+                                    elements[*member_index as usize].row_major = false;
+                                }
+                                ops::Decoration::MatrixStride { stride } => {
+                                    elements[*member_index as usize].stride = *stride;
+                                }
+                                ops::Decoration::Offset { offset } => {
+                                    elements[*member_index as usize].offset = Some(*offset);
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
@@ -226,7 +299,7 @@ impl Module {
         ops: &[Op],
         types: &mut HashMap<u32, Type>,
         constants: &mut HashMap<u32, u32>,
-        vars: &mut HashMap<u32, Variable>,
+        vars: &mut HashMap<u32, RawVariable>,
     ) -> SpirvResult<()> {
         for op in ops {
             match op {
@@ -381,6 +454,8 @@ impl Module {
                                     name: None,
                                     type_id: e.0,
                                     offset: None,
+                                    row_major: true,
+                                    stride: 16,
                                 })
                                 .collect(),
                         },
@@ -399,6 +474,8 @@ impl Module {
                                 ops::StorageClass::UniformConstant {}
                                 | ops::StorageClass::Uniform {} => StorageClass::Uniform,
                                 ops::StorageClass::PushConstant {} => StorageClass::PushConstant,
+                                ops::StorageClass::Input {} => StorageClass::Input,
+                                ops::StorageClass::Output {} => StorageClass::Output,
                             },
                             pointed_type_id: pointed_type.0,
                         },
@@ -423,9 +500,10 @@ impl Module {
                 } => {
                     vars.insert(
                         result.0,
-                        Variable {
+                        RawVariable {
                             set: None,
                             binding: None,
+                            location: None,
                             type_id: result_type.0,
                             name: None,
                         },
@@ -511,6 +589,8 @@ pub struct StructMember {
     pub name: Option<String>,
     pub type_id: u32,
     pub offset: Option<u32>,
+    pub row_major: bool,
+    pub stride: u32,
 }
 
 /// Describes what type of storage a pointer points to
@@ -524,15 +604,28 @@ pub enum StorageClass {
     UniformConstant,
     /// The pointer is a push constant
     PushConstant,
+    /// The pointer is an input variable
+    Input,
+    /// The pointer is an output variable
+    Output,
 }
 
-/// Describes a variable declared in a SPIRV module
 #[derive(Debug, Clone)]
-pub struct Variable {
+struct RawVariable {
+    set: Option<u32>,
+    binding: Option<u32>,
+    location: Option<u32>,
+    type_id: u32,
+    name: Option<String>,
+}
+
+/// Describes a uniform variable declared in a SPIRV module
+#[derive(Debug, Clone)]
+pub struct UniformVariable {
     /// Which DescriptorSet the variable is contained in (if known)
-    pub set: Option<u32>,
+    pub set: u32,
     /// Which DescriptorSet binding the variable is contained in (if known)
-    pub binding: Option<u32>,
+    pub binding: u32,
     /// The type id of the variable's [`Type`]
     pub type_id: u32,
     /// The variables name (if known)
@@ -541,6 +634,13 @@ pub struct Variable {
 
 #[derive(Debug, Clone)]
 pub struct PushConstantVariable {
+    pub type_id: u32,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LocationVariable {
+    pub location: u32,
     pub type_id: u32,
     pub name: Option<String>,
 }

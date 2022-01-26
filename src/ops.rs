@@ -213,6 +213,8 @@ enums!(
     Decoration {
         4 = RowMajor(),
         5 = ColMajor(),
+        7 = MatrixStride(stride: u32),
+        30 = Location(loc: u32),
         33 = Binding(binding: u32),
         34 = DescriptorSet(set: u32),
         35 = Offset(offset: u32),
@@ -230,7 +232,9 @@ enums!(
 
     StorageClass {
         0 = UniformConstant(),
+        1 = Input(),
         2 = Uniform(),
+        3 = Output(),
         9 = PushConstant(),
     },
 );

@@ -1,6 +1,6 @@
 use core::slice;
 
-use spirv_layout::{Module, PushConstantVariable, Type, Variable};
+use spirv_layout::{LocationVariable, Module, PushConstantVariable, Type, UniformVariable};
 
 const PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -13,9 +13,19 @@ fn main() {
         let words = unsafe { slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4) };
         let module = Module::from_words(words).unwrap();
 
+        println!("=== INPUTS ===");
+        for var in module.get_inputs() {
+            print_location_var(&module, var);
+        }
+
+        println!("=== OUTPUTS ===");
+        for var in module.get_outputs() {
+            print_location_var(&module, var);
+        }
+
         println!("=== UNIFORMS ===");
         for var in module.get_uniforms() {
-            print_var(&module, var);
+            print_uniform_var(&module, var);
         }
 
         println!("=== PUSH CONSTANTS ===");
@@ -25,12 +35,8 @@ fn main() {
     }
 }
 
-fn print_var(module: &Module, var: &Variable) {
-    if let Some(set) = var.set {
-        if let Some(binding) = var.binding {
-            print!("layout (set={}, binding={}) ", set, binding);
-        }
-    }
+fn print_uniform_var(module: &Module, var: &UniformVariable) {
+    print!("layout (set={}, binding={}) ", var.set, var.binding);
 
     print_type(module, module.get_type(var.type_id).unwrap());
 
@@ -45,6 +51,21 @@ fn print_var(module: &Module, var: &Variable) {
 }
 
 fn print_pc_var(module: &Module, var: &PushConstantVariable) {
+    print_type(module, module.get_type(var.type_id).unwrap());
+
+    println!(
+        "{};",
+        if let Some(name) = &var.name {
+            name
+        } else {
+            "<no-name>"
+        }
+    );
+}
+
+fn print_location_var(module: &Module, var: &LocationVariable) {
+    print!("layout (location={}) ", var.location);
+
     print_type(module, module.get_type(var.type_id).unwrap());
 
     println!(
@@ -86,10 +107,22 @@ fn print_type(module: &Module, ty: &Type) {
             );
 
             for elem in elements {
-                print!("    ");
+                print!("    layout(");
                 if let Some(offset) = elem.offset {
-                    print!("layout(offset={}) ", offset);
+                    print!("offset={}", offset);
                 }
+                if let Some(Type::Mat3 | Type::Mat4) = module.get_type(elem.type_id) {
+                    print!(
+                        ", {}, stride={}",
+                        if elem.row_major {
+                            "row_major"
+                        } else {
+                            "col_major"
+                        },
+                        elem.stride
+                    );
+                }
+                print!(") ");
 
                 print_type(module, module.get_type(elem.type_id).unwrap());
 
