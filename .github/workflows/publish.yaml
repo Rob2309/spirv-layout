@@ -20,14 +20,12 @@ jobs:
       - name: Check version consistency
         uses: rob2309/workflows/.github/actions/check-crate-version@master
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        uses: actions/create-release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          body: |
-            # Changes
           draft: true
       - name: Run cargo publish
         uses: actions-rs/cargo@v1
