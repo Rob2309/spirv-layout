@@ -37,7 +37,7 @@ pub struct Module {
     /// Stores information about all uniform variables that exist in the given SPIRV module.
     uniforms: Vec<Variable>,
     /// Stores information about all push constant variables that exist in the given SPIRV module.
-    push_constants: Vec<Variable>,
+    push_constants: Vec<PushConstantVariable>,
 }
 
 impl Module {
@@ -104,9 +104,7 @@ impl Module {
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(Variable {
-                        set: None,
-                        binding: None,
+                    Some(PushConstantVariable {
                         type_id: *pointed_type_id,
                         name: var.name.clone(),
                     })
@@ -134,7 +132,7 @@ impl Module {
     }
 
     /// Returns all push-constant variables declared in the given SPIR-V module.
-    pub fn get_push_constants(&self) -> &[Variable] {
+    pub fn get_push_constants(&self) -> &[PushConstantVariable] {
         &self.push_constants
     }
 
@@ -445,6 +443,7 @@ impl Module {
 ///
 /// Types are declared in a hierarchy, with e.g. pointers relying on previously declared types as pointed-to types.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Type {
     /// An unsupported type
     Unknown,
@@ -516,6 +515,7 @@ pub struct StructMember {
 
 /// Describes what type of storage a pointer points to
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum StorageClass {
     Unknown,
     /// The pointer is a uniform variable (Uniform blocks)
@@ -536,5 +536,11 @@ pub struct Variable {
     /// The type id of the variable's [`Type`]
     pub type_id: u32,
     /// The variables name (if known)
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PushConstantVariable {
+    pub type_id: u32,
     pub name: Option<String>,
 }

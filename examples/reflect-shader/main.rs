@@ -1,6 +1,6 @@
 use core::slice;
 
-use spirv_layout::{Module, Type, Variable};
+use spirv_layout::{Module, PushConstantVariable, Type, Variable};
 
 const PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -20,7 +20,7 @@ fn main() {
 
         println!("=== PUSH CONSTANTS ===");
         for var in module.get_push_constants() {
-            print_var(&module, var);
+            print_pc_var(&module, var);
         }
     }
 }
@@ -44,9 +44,21 @@ fn print_var(module: &Module, var: &Variable) {
     );
 }
 
+fn print_pc_var(module: &Module, var: &PushConstantVariable) {
+    print_type(module, module.get_type(var.type_id).unwrap());
+
+    println!(
+        "{};",
+        if let Some(name) = &var.name {
+            name
+        } else {
+            "<no-name>"
+        }
+    );
+}
+
 fn print_type(module: &Module, ty: &Type) {
     match ty {
-        Type::Unknown => print!("<unknown> "),
         Type::Void => print!("void "),
         Type::Bool => print!("bool "),
         Type::Int32 => print!("int "),
@@ -100,5 +112,6 @@ fn print_type(module: &Module, ty: &Type) {
             print_type(module, module.get_type(*pointed_type_id).unwrap());
             print!("* ");
         }
+        _ => print!("<unknown> "),
     }
 }
