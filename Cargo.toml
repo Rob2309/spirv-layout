@@ -1,6 +1,6 @@
 [package]
 name = "spirv-layout"
-version = "0.3.0"
+version = "0.4.0"
 authors = [ "Robin Quint" ]
 edition = "2021"
 description = "SPIRV reflection utility for deriving Vulkan DescriptorSetLayouts"
