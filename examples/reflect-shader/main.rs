@@ -45,12 +45,13 @@ fn print_uniform_var(module: &Module, var: &UniformVariable) {
     print_type(module, module.get_type(var.type_id).unwrap());
 
     println!(
-        "{};",
+        "{}; // size={}",
         if let Some(name) = &var.name {
             name
         } else {
             "<no-name>"
-        }
+        },
+        module.get_var_size(var).unwrap()
     );
 }
 
@@ -58,12 +59,13 @@ fn print_pc_var(module: &Module, var: &PushConstantVariable) {
     print_type(module, module.get_type(var.type_id).unwrap());
 
     println!(
-        "{};",
+        "{}; // size={}",
         if let Some(name) = &var.name {
             name
         } else {
             "<no-name>"
-        }
+        },
+        module.get_var_size(var).unwrap()
     );
 }
 
@@ -73,12 +75,13 @@ fn print_location_var(module: &Module, var: &LocationVariable) {
     print_type(module, module.get_type(var.type_id).unwrap());
 
     println!(
-        "{};",
+        "{}; // size={}",
         if let Some(name) = &var.name {
             name
         } else {
             "<no-name>"
-        }
+        },
+        module.get_var_size(var).unwrap()
     );
 }
 
@@ -131,12 +134,13 @@ fn print_type(module: &Module, ty: &Type) {
                 print_type(module, module.get_type(elem.type_id).unwrap());
 
                 println!(
-                    "{};",
+                    "{}; // size={}",
                     if let Some(name) = &elem.name {
                         name
                     } else {
                         "<no-name>"
-                    }
+                    },
+                    module.get_member_size(elem).unwrap()
                 );
             }
 

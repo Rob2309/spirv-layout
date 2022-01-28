@@ -232,26 +232,21 @@ impl Module {
         &self.entry_points
     }
 
-    /// Calculates the size of a primitive type or Struct.
-    ///
-    /// # Returns
-    /// The size of the type indicated by `type_id`
-    /// or [`None`] if the size of the given type is not known.
-    pub fn get_type_size(&self, type_id: u32) -> Option<u32> {
+    fn get_type_size(&self, type_id: u32, stride: Option<u32>) -> Option<u32> {
         if let Some(ty) = self.types.get(&type_id) {
             match ty {
                 Type::Int32 | Type::UInt32 | Type::Float32 => Some(4),
                 Type::Vec2 => Some(8),
                 Type::Vec3 => Some(12),
                 Type::Vec4 => Some(16),
-                Type::Mat3 => Some(48), // Mat3 works like three Vec3 after another, Vec3 has alignment of Vec4
-                Type::Mat4 => Some(64),
+                Type::Mat3 => stride.map(|stride| stride * 2 + 12), // two rows/columns + sizeof(Vec3)
+                Type::Mat4 => stride.map(|stride| stride * 3 + 16), // three rows/columns + sizeof(Vec4)
                 Type::Struct { elements, .. } => {
                     // Since there is no Size Decoration in SPIRV that tells us the size,
                     // we calculate it from the offset of the last member and its size.
                     let last_element = elements.iter().max_by_key(|e| e.offset.unwrap_or(0))?;
                     let offset = last_element.offset?;
-                    let size = self.get_type_size(last_element.type_id)?;
+                    let size = self.get_member_size(last_element)?;
 
                     Some(offset + size)
                 }
@@ -260,6 +255,16 @@ impl Module {
         } else {
             None
         }
+    }
+
+    /// Returns the size of a given [`StructMember`], if known.
+    pub fn get_member_size(&self, member: &StructMember) -> Option<u32> {
+        self.get_type_size(member.type_id, Some(member.stride))
+    }
+
+    /// Returns the size of a given [`UniformVariable`], [`PushConstantVariable`] or [`LocationVariable`], if known.
+    pub fn get_var_size<T: Variable>(&self, var: &T) -> Option<u32> {
+        self.get_type_size(var.get_type_id(), None)
     }
 
     /// Parses all the Op*Decoration and Op*Name instructions
@@ -735,4 +740,29 @@ pub struct LocationVariable {
     pub type_id: u32,
     /// The variable's name (if known)
     pub name: Option<String>,
+}
+
+mod private {
+    pub trait Variable {
+        fn get_type_id(&self) -> u32;
+    }
+}
+
+pub trait Variable: private::Variable {}
+impl<T: private::Variable> Variable for T {}
+
+impl private::Variable for UniformVariable {
+    fn get_type_id(&self) -> u32 {
+        self.type_id
+    }
+}
+impl private::Variable for PushConstantVariable {
+    fn get_type_id(&self) -> u32 {
+        self.type_id
+    }
+}
+impl private::Variable for LocationVariable {
+    fn get_type_id(&self) -> u32 {
+        self.type_id
+    }
 }
