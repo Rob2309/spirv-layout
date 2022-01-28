@@ -51,6 +51,12 @@ macro_rules! ops {
 ops!(
     5 = OpName(target: Id, name: String),
     6 = OpMemberName(target: Id, member_index: u32, name: String),
+    15 = OpEntryPoint(
+        execution_model: ExecutionModel,
+        func: Id,
+        name: String,
+        interface: Vec<Id>
+    ),
     71 = OpDecorate(target: Id, decoration: Decoration),
     72 = OpMemberDecorate(target: Id, member_index: u32, decoration: Decoration),
     19 = OpTypeVoid(result: Id),
@@ -106,7 +112,7 @@ impl DecodeArg for u32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Id(pub(crate) u32);
 
 impl DecodeArg for Id {
@@ -236,5 +242,10 @@ enums!(
         2 = Uniform(),
         3 = Output(),
         9 = PushConstant(),
+    },
+
+    ExecutionModel {
+        0 = Vertex(),
+        4 = Fragment(),
     },
 );

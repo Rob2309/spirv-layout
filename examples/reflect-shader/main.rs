@@ -13,24 +13,28 @@ fn main() {
         let words = unsafe { slice::from_raw_parts(bytes.as_ptr() as *const u32, bytes.len() / 4) };
         let module = Module::from_words(words).unwrap();
 
-        println!("=== INPUTS ===");
-        for var in module.get_inputs() {
-            print_location_var(&module, var);
-        }
+        for ep in module.get_entry_points() {
+            println!("ENTRYPOINT {} {:?}", ep.name, ep.execution_model);
 
-        println!("=== OUTPUTS ===");
-        for var in module.get_outputs() {
-            print_location_var(&module, var);
-        }
+            println!("=== INPUTS ===");
+            for var in &ep.inputs {
+                print_location_var(&module, var);
+            }
 
-        println!("=== UNIFORMS ===");
-        for var in module.get_uniforms() {
-            print_uniform_var(&module, var);
-        }
+            println!("=== OUTPUTS ===");
+            for var in &ep.outputs {
+                print_location_var(&module, var);
+            }
 
-        println!("=== PUSH CONSTANTS ===");
-        for var in module.get_push_constants() {
-            print_pc_var(&module, var);
+            println!("=== UNIFORMS ===");
+            for var in &ep.uniforms {
+                print_uniform_var(&module, var);
+            }
+
+            println!("=== PUSH CONSTANTS ===");
+            for var in &ep.push_constants {
+                print_pc_var(&module, var);
+            }
         }
     }
 }

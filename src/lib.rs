@@ -8,7 +8,7 @@
 
 use std::{collections::HashMap, str::Utf8Error};
 
-use ops::{Dim, Op};
+use ops::{Dim, Id, Op};
 use thiserror::Error;
 
 mod ops;
@@ -32,16 +32,27 @@ pub type SpirvResult<T> = ::std::result::Result<T, Error>;
 /// Stores the reflection info of a single SPIRV module.
 #[derive(Debug)]
 pub struct Module {
-    /// Stores information about all type declarations that exist in the given SPIRV module.
     types: HashMap<u32, Type>,
-    /// Stores information about all uniform variables that exist in the given SPIRV module.
-    uniforms: Vec<UniformVariable>,
-    /// Stores information about all push constant variables that exist in the given SPIRV module.
-    push_constants: Vec<PushConstantVariable>,
-    /// Stores information about all input variables that exist in the given SPIRV module.
-    inputs: Vec<LocationVariable>,
-    /// Stores information about all output variables that exist in the given SPIRV module.
-    outputs: Vec<LocationVariable>,
+    entry_points: Vec<EntryPoint>,
+}
+
+/// Describes a single `EntryPoint` in a SPIR-V module.
+///
+/// A SPIR-V module can have multiple entry points with different names, each defining a single shader.
+#[derive(Debug)]
+pub struct EntryPoint {
+    /// The name of the entry point, used for identification
+    pub name: String,
+    /// The [`ExecutionModel`] of the entry point, selects which type of shader this entry point defines
+    pub execution_model: ExecutionModel,
+    /// All uniform variables used in this shader
+    pub uniforms: Vec<UniformVariable>,
+    /// All push constant variables used in this shader
+    pub push_constants: Vec<PushConstantVariable>,
+    /// All inputs used in this shader
+    pub inputs: Vec<LocationVariable>,
+    /// All outputs used in this shader
+    pub outputs: Vec<LocationVariable>,
 }
 
 impl Module {
@@ -69,99 +80,145 @@ impl Module {
             ops.push(op);
         }
 
-        // All OpConstant values are stored in this Vec
+        // All OpConstant values are stored in this Map
         let mut constants = HashMap::new();
-        // All type declarations are stored in this Vec
+        // All type declarations are stored in this Map
         let mut types = HashMap::new();
-        // All variable declarations are stored in this Vec
+        // All variable declarations are stored in this Map
         let mut vars = HashMap::new();
+        // All entry points declarations are stored in this Vec
+        let mut entries = Vec::new();
 
-        Self::collect_types_and_vars(&ops, &mut types, &mut constants, &mut vars)?;
+        Self::collect_types_and_vars(&ops, &mut types, &mut constants, &mut vars, &mut entries)?;
         Self::collect_decorations_and_names(&ops, &mut types, &mut vars);
 
         // uniforms are all variables that are a pointer with a storage class of Uniform or UniformConstant
-        let uniforms = vars
+        let uniforms: HashMap<_, _> = vars
             .iter()
-            .filter_map(|(_id, var)| {
+            .filter_map(|(id, var)| {
                 if let Some(Type::Pointer {
                     storage_class: StorageClass::Uniform | StorageClass::UniformConstant,
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(UniformVariable {
-                        set: var.set?,
-                        binding: var.binding?,
-                        type_id: *pointed_type_id, // for convenience, we store the pointed-to type instead of the pointer, since every uniform is a pointer
-                        name: var.name.clone(),
-                    })
+                    Some((
+                        *id,
+                        UniformVariable {
+                            set: var.set?,
+                            binding: var.binding?,
+                            type_id: *pointed_type_id, // for convenience, we store the pointed-to type instead of the pointer, since every uniform is a pointer
+                            name: var.name.clone(),
+                        },
+                    ))
                 } else {
                     None
                 }
             })
             .collect();
 
-        let push_constants = vars
+        let push_constants: HashMap<_, _> = vars
             .iter()
-            .filter_map(|(_id, var)| {
+            .filter_map(|(id, var)| {
                 if let Some(Type::Pointer {
                     storage_class: StorageClass::PushConstant,
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(PushConstantVariable {
-                        type_id: *pointed_type_id,
-                        name: var.name.clone(),
-                    })
+                    Some((
+                        *id,
+                        PushConstantVariable {
+                            type_id: *pointed_type_id,
+                            name: var.name.clone(),
+                        },
+                    ))
                 } else {
                     None
                 }
             })
             .collect();
 
-        let inputs = vars
+        let inputs: HashMap<_, _> = vars
             .iter()
-            .filter_map(|(_id, var)| {
+            .filter_map(|(id, var)| {
                 if let Some(Type::Pointer {
                     storage_class: StorageClass::Input,
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(LocationVariable {
-                        location: var.location?,
-                        type_id: *pointed_type_id,
-                        name: var.name.clone(),
-                    })
+                    Some((
+                        *id,
+                        LocationVariable {
+                            location: var.location?,
+                            type_id: *pointed_type_id,
+                            name: var.name.clone(),
+                        },
+                    ))
                 } else {
                     None
                 }
             })
             .collect();
 
-        let outputs = vars
+        let outputs: HashMap<_, _> = vars
             .iter()
-            .filter_map(|(_id, var)| {
+            .filter_map(|(id, var)| {
                 if let Some(Type::Pointer {
                     storage_class: StorageClass::Output,
                     pointed_type_id,
                 }) = types.get(&var.type_id)
                 {
-                    Some(LocationVariable {
-                        location: var.location?,
-                        type_id: *pointed_type_id,
-                        name: var.name.clone(),
-                    })
+                    Some((
+                        *id,
+                        LocationVariable {
+                            location: var.location?,
+                            type_id: *pointed_type_id,
+                            name: var.name.clone(),
+                        },
+                    ))
                 } else {
                     None
+                }
+            })
+            .collect();
+
+        let entry_points = entries
+            .iter()
+            .map(|e| {
+                let uniforms = e
+                    .interface
+                    .iter()
+                    .filter_map(|id| uniforms.get(&id.0).cloned())
+                    .collect();
+                let push_constants = e
+                    .interface
+                    .iter()
+                    .filter_map(|id| push_constants.get(&id.0).cloned())
+                    .collect();
+                let inputs = e
+                    .interface
+                    .iter()
+                    .filter_map(|id| inputs.get(&id.0).cloned())
+                    .collect();
+                let outputs = e
+                    .interface
+                    .iter()
+                    .filter_map(|id| outputs.get(&id.0).cloned())
+                    .collect();
+
+                EntryPoint {
+                    name: e.name.clone(),
+                    execution_model: e.execution_model,
+                    uniforms,
+                    push_constants,
+                    inputs,
+                    outputs,
                 }
             })
             .collect();
 
         Ok(Self {
             types,
-            uniforms,
-            push_constants,
-            inputs,
-            outputs,
+            entry_points,
         })
     }
 
@@ -170,24 +227,9 @@ impl Module {
         self.types.get(&type_id)
     }
 
-    /// Returns all uniform variables declared in the given SPIR-V module.
-    pub fn get_uniforms(&self) -> &[UniformVariable] {
-        &self.uniforms
-    }
-
-    /// Returns all push-constant variables declared in the given SPIR-V module.
-    pub fn get_push_constants(&self) -> &[PushConstantVariable] {
-        &self.push_constants
-    }
-
-    /// Returns all input variables declared in the given SPIR-V module.
-    pub fn get_inputs(&self) -> &[LocationVariable] {
-        &self.inputs
-    }
-
-    /// Returns all output variables declared in the given SPIR-V module.
-    pub fn get_outputs(&self) -> &[LocationVariable] {
-        &self.outputs
+    /// Returns the [`EntryPoint`] definitions contained in the given SPIR-V module
+    pub fn get_entry_points(&self) -> &[EntryPoint] {
+        &self.entry_points
     }
 
     /// Calculates the size of a primitive type or Struct.
@@ -300,6 +342,7 @@ impl Module {
         types: &mut HashMap<u32, Type>,
         constants: &mut HashMap<u32, u32>,
         vars: &mut HashMap<u32, RawVariable>,
+        entries: &mut Vec<RawEntryPoint>,
     ) -> SpirvResult<()> {
         for op in ops {
             match op {
@@ -509,6 +552,26 @@ impl Module {
                         },
                     );
                 }
+                Op::OpEntryPoint {
+                    execution_model,
+                    func: _,
+                    name,
+                    interface,
+                } => {
+                    entries.push(RawEntryPoint {
+                        name: name.clone(),
+                        execution_model: match execution_model {
+                            ops::ExecutionModel::Unknown => {
+                                return Err(Error::Other(
+                                    "Unknown execution model in entry point".to_string(),
+                                ))
+                            }
+                            ops::ExecutionModel::Vertex {} => ExecutionModel::Vertex,
+                            ops::ExecutionModel::Fragment {} => ExecutionModel::Fragment,
+                        },
+                        interface: interface.clone(),
+                    });
+                }
                 _ => {}
             }
         }
@@ -586,10 +649,15 @@ pub enum Type {
 /// Describes a single member of a [`Type::Struct`] type
 #[derive(Debug)]
 pub struct StructMember {
+    /// The name of the member variable (if known)
     pub name: Option<String>,
+    /// The type id of the member's [`Type`]
     pub type_id: u32,
+    /// The offset within the struct of this member (if known)
     pub offset: Option<u32>,
+    /// For matrix members: whether this matrix is stored in row major order
     pub row_major: bool,
+    /// For matrix members: The stride between rows/columns of the matrix
     pub stride: u32,
 }
 
@@ -610,6 +678,16 @@ pub enum StorageClass {
     Output,
 }
 
+/// The execution model of an [`EntryPoint`].
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum ExecutionModel {
+    /// A Vertex Shader
+    Vertex,
+    /// A Fragment Shader
+    Fragment,
+}
+
 #[derive(Debug, Clone)]
 struct RawVariable {
     set: Option<u32>,
@@ -617,6 +695,13 @@ struct RawVariable {
     location: Option<u32>,
     type_id: u32,
     name: Option<String>,
+}
+
+#[derive(Debug)]
+struct RawEntryPoint {
+    name: String,
+    execution_model: ExecutionModel,
+    interface: Vec<Id>,
 }
 
 /// Describes a uniform variable declared in a SPIRV module
@@ -632,15 +717,22 @@ pub struct UniformVariable {
     pub name: Option<String>,
 }
 
+/// Describes a push constant variable declared in a SPIRV module
 #[derive(Debug, Clone)]
 pub struct PushConstantVariable {
+    /// The type id of the variable's [`Type`]
     pub type_id: u32,
+    /// The variables name (if known)
     pub name: Option<String>,
 }
 
+/// Describes an input or output variable declared in a SPIRV module
 #[derive(Debug, Clone)]
 pub struct LocationVariable {
+    /// The location of the variable (e.g. GLSL `layout(location=XXX)`)
     pub location: u32,
+    /// The type id of the variable's [`Type`]
     pub type_id: u32,
+    /// The variable's name (if known)
     pub name: Option<String>,
 }
